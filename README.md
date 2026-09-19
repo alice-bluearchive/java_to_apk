@@ -1,4 +1,7 @@
 # Termux APK Builder
+![Last Commit](https://img.shields.io/github/last-commit/alice-bluearchive/java_to_apk)
+![Commit Activity](https://img.shields.io/github/commit-activity/m/alice-bluearchive/java_to_apk)
+[![Project Status: Active](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
 
 在 Termux 终端中编译 Android APK 的工具集，兼容 Android 16，支持自定义应用图标。
 
@@ -36,8 +39,8 @@ aapt2 version
 ### 2. 下载工具
 
 ```bash
-git clone https://github.com/3453954723/termux-apk-builder.git
-cd termux-apk-builder
+git clone https://github.com/alice-bluearchive/java_to_apk.git
+cd java_to_apk
 cp tools/apk-builder.sh ~/tools/
 chmod +x ~/tools/apk-builder.sh
 mkdir -p ~/android-sdk/android-34
@@ -81,7 +84,7 @@ termux-open MyWebApp/build/app.apk
 ## 目录结构
 
 ```
-termux-apk-builder/
+java_to_apk/
 ├── android-sdk/
 │   └── android-34/
 │       └── android.jar          # Android 框架类 （编译用）
