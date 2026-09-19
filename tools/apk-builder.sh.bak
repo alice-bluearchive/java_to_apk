@@ -1,0 +1,95 @@
+#!/bin/bash
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+NC='\033[0m'
+ANDROID_SDK="/data/data/com.termux/files/home/android-sdk"
+ANDROID_JAR="$ANDROID_SDK/android-34/android.jar"
+DEBUG_KEYSTORE="$ANDROID_SDK/debug.keystore"
+info(){ echo -e "${BLUE}[INFO]${NC} $1";}
+success(){ echo -e "${GREEN}[OK]${NC} $1";}
+error(){ echo -e "${RED}[ERROR]${NC} $1"; exit 1;}
+step(){ echo -e "${CYAN}[$1/$2]${NC} $3";}
+init_project(){
+local d="$1" p="$2" n="$3"
+[ -z "$d" ]||[ -z "$p" ]||[ -z "$n" ]&&{ echo "用法: $0 init <目录> <包名> <应用名>"; exit 1;}
+[ -d "$d" ]&&error "目录已存在: $d"
+local pp=$(echo "$p"|tr '.' '/')
+mkdir -p "$d"/{src/"$pp",res/{layout,values},build}
+cat>"$d/AndroidManifest.xml"<<'M'
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="PKG">
+<uses-sdk android:minSdkVersion="21" android:targetSdkVersion="36"/>
+<application android:label="@string/app_name" android:theme="@android:style/Theme.Material.Light.DarkActionBar">
+<activity android:name=".MainActivity" android:exported="true">
+<intent-filter><action android:name="android.intent.action.MAIN"/>
+<category android:name="android.intent.category.LAUNCHER"/></intent-filter>
+</activity></application></manifest>
+M
+sed -i "s/PKG/$p/" "$d/AndroidManifest.xml"
+cat>"$d/res/layout/activity_main.xml"<<'L'
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+android:layout_width="match_parent" android:layout_height="match_parent"
+android:orientation="vertical" android:gravity="center" android:padding="24dp">
+<TextView android:id="@+id/t" android:layout_width="wrap_content" android:layout_height="wrap_content"
+android:text="@string/app_name" android:textSize="28sp"/>
+<Button android:id="@+id/b" android:layout_width="wrap_content" android:layout_height="wrap_content"
+android:text="Click" android:layout_marginTop="16dp"/>
+</LinearLayout>
+L
+cat>"$d/res/values/strings.xml"<<S
+<?xml version="1.0" encoding="utf-8"?>
+<resources><string name="app_name">$n</string></resources>
+S
+cat>"$d/src/$pp/MainActivity.java"<<J
+package $p;
+import android.app.Activity;
+import android.os.Bundle;
+import android.widget.Button;
+import android.view.View;
+import android.widget.Toast;
+public class MainActivity extends Activity{
+protected void onCreate(Bundle s){
+super.onCreate(s);
+setContentView(R.layout.activity_main);
+((Button)findViewById(R.id.b)).setOnClickListener(new View.OnClickListener(){
+public void onClick(View v){
+Toast.makeText(MainActivity.this,"Hi",0).show();
+}});}}
+J
+[ ! -f "$DEBUG_KEYSTORE" ]&&keytool -genkey -v -keystore "$DEBUG_KEYSTORE" -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Debug,O=Android,C=US" 2>/dev/null
+success "项目 $n 初始化完成"
+}
+build_project(){
+local dir="$1" out="${2:-app}"
+[ -z "$dir" ]&&error "用法: $0 build <目录> [输出名]"
+[ ! -d "$dir" ]&&error "目录不存在: $dir"
+cd "$dir"
+rm -rf build&&mkdir -p build/{classes,compiled_res,dex,gen}
+step 1 6 "编译资源"
+aapt2 compile --dir res -o build/compiled_res/||error "资源编译失败"
+step 2 6 "链接资源"
+aapt2 link -o build/app.apk -I "$ANDROID_JAR" --manifest AndroidManifest.xml --java build/gen --auto-add-overlay --min-sdk-version 21 --target-sdk-version 36 build/compiled_res/*.flat||error "资源链接失败"
+step 3 6 "编译Java"
+find src build/gen -name "*.java">build/src.txt
+javac --release 8 -Xlint:-options -cp "$ANDROID_JAR" -d build/classes @build/src.txt||error "Java编译失败"
+step 4 6 "转换DEX"
+d8 --min-api 21 --lib "$ANDROID_JAR" --classpath "$ANDROID_JAR" --output build/dex $(find build/classes -name "*.class")||error "DEX失败"
+step 5 6 "打包"
+cp build/app.apk build/u.apk&&cp build/dex/classes.dex build/classes.dex&&cd build&&zip -u u.apk classes.dex&&cd ..
+step 6 6 "签名"
+zipalign -f 4 build/u.apk build/a.apk
+apksigner sign --min-sdk-version 21 --ks "$DEBUG_KEYSTORE" --ks-pass pass:android --ks-key-alias androiddebugkey --key-pass pass:android --out "build/$out.apk" build/a.apk||error "签名失败"
+rm -f build/u.apk build/a.apk build/classes.dex
+success "完成! build/$out.apk"
+}
+clean_project(){ [ -z "$1" ]&&error "用法: $0 clean <目录>"; rm -rf "$1/build"; success "清理完成";}
+main(){ case "$1" in
+init) shift; init_project "$@";;
+build) shift; build_project "$@";;
+clean) shift; clean_project "$@";;
+*) echo "init|build|clean";;
+esac;}
+main "$@"
