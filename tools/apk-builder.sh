@@ -7,7 +7,6 @@ NC='\033[0m'
 ANDROID_SDK="/data/data/com.termux/files/home/android-sdk"
 ANDROID_JAR="$ANDROID_SDK/android-34/android.jar"
 DEBUG_KEYSTORE="$ANDROID_SDK/debug.keystore"
-DEF_ICON="iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
 
 info(){ echo -e "${BLUE}[INFO]${NC} $1";}
 success(){ echo -e "${GREEN}[OK]${NC} $1";}
@@ -45,10 +44,12 @@ apply_icon(){
     if [ -n "$icon" ]; then
         [ -f "$icon" ] || error "图标文件不存在: $icon"
         cp -f "$icon" "$d/res/mipmap/ic_launcher.png"
+        if ! grep -q 'android:icon="@mipmap/ic_launcher"' "$d/AndroidManifest.xml"; then
+            sed -i 's|android:label="@string/app_name"|android:label="@string/app_name" android:icon="@mipmap/ic_launcher"|' "$d/AndroidManifest.xml"
+        fi
         info "已应用自定义图标: $icon"
-    elif [ ! -f "$d/res/mipmap/ic_launcher.png" ]; then
-        echo "$DEF_ICON" | base64 -d > "$d/res/mipmap/ic_launcher.png"
-        info "使用默认图标"
+    else
+        info "未指定图标，使用 Android 系统默认图标"
     fi
 }
 
@@ -123,7 +124,7 @@ HTML
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="PKG">
 <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="36"/>
 <uses-permission android:name="android.permission.INTERNET"/>
-<application android:label="@string/app_name" android:icon="@mipmap/ic_launcher" android:theme="@android:style/Theme.Material.Light.DarkActionBar">
+<application android:label="@string/app_name" android:theme="@android:style/Theme.Material.Light.DarkActionBar">
 <activity android:name=".MainActivity" android:exported="true"
     android:configChanges="orientation|screenSize|keyboardHidden">
 <intent-filter><action android:name="android.intent.action.MAIN"/>
@@ -166,7 +167,6 @@ public class MainActivity extends Activity {
 }
 J
 
-        apply_icon "$d"
         [ ! -f "$DEBUG_KEYSTORE" ] && keytool -genkey -v -keystore "$DEBUG_KEYSTORE" -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Debug,O=Android,C=US" 2>/dev/null
         success "Web 项目 $n 初始化完成（入口: assets/index.html）"
         return
@@ -177,7 +177,7 @@ J
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="PKG">
 <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="36"/>
-<application android:label="@string/app_name" android:icon="@mipmap/ic_launcher" android:theme="@android:style/Theme.Material.Light.DarkActionBar">
+<application android:label="@string/app_name" android:theme="@android:style/Theme.Material.Light.DarkActionBar">
 <activity android:name=".MainActivity" android:exported="true">
 <intent-filter><action android:name="android.intent.action.MAIN"/>
 <category android:name="android.intent.category.LAUNCHER"/></intent-filter>
@@ -215,7 +215,6 @@ public void onClick(View v){
 Toast.makeText(MainActivity.this,"Hi",0).show();
 }});}}
 J
-    apply_icon "$d"
     [ ! -f "$DEBUG_KEYSTORE" ] && keytool -genkey -v -keystore "$DEBUG_KEYSTORE" -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Debug,O=Android,C=US" 2>/dev/null
     success "项目 $n 初始化完成"
 }
