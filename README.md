@@ -22,7 +22,7 @@
 
 ```bash
 pkg update
-pkg install openjdk-17 apksigner d8 lydx imagemagick
+pkg install openjdk-17 apksigner d8 dx imagemagick
 #安装zipalign
 curl -s https://raw.githubusercontent.com/rendiix/rendiix.github.io/master/install-repo.sh | bash
 pkg install zipalign
@@ -38,9 +38,8 @@ pkg install zipalign
 
 ```bash
 mkdir -p ~/tools
-curl -L -o ~/tools/apk-builder.sh \
-  https://github.com/alice-bluearchive/java_to_apk/releases/latest/download/apk-builder.sh
-chmod +x ~/tools/apk-builder.sh
+#把从release下载下来的两个.sh文件放在这
+chmod +x apk-builder.sh apk-manager.sh
 mkdir -p ~/android-sdk/android-34
 # 把 android.jar 放到 ~/android-sdk/android-34/
 ```
@@ -49,18 +48,16 @@ mkdir -p ~/android-sdk/android-34
 
 ```bash
 git clone https://github.com/alice-bluearchive/java_to_apk.git
-cd java_to_apk
-cp tools/apk-builder.sh ~/tools/
+cd java_to_apk/tools
+chmod +x ~/java_to_apk/tools/init.sh
+./init.sh
 chmod +x ~/tools/apk-builder.sh
-mkdir -p ~/android-sdk/android-34
-cp android-sdk/android-34/android.jar ~/android-sdk/android-34/
+chmod +x ~/tools/apk-manager.sh
 ```
 
 **用图形化管理器的话，再加：**
 
 ```bash
-cp tools/apk-manager.sh ~/tools/
-chmod +x ~/tools/apk-manager.sh
 pkg install termux-api jq
 # 还要从 F-Droid 安装 Termux:API 应用
 ```
@@ -95,6 +92,7 @@ java_to_apk/
 │       └── android.jar          # Android 框架类
 ├── tools/
 │   ├── apk-builder.sh           # 命令行编译脚本
+│   ├──init.sh                     #初始化脚本
 │   └── apk-manager.sh           # 图形化管理器
 ├── example/                     # 示例项目
 └── README.md
