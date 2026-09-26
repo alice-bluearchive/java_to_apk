@@ -141,6 +141,7 @@ menu(){
     done
 }
 
+main(){
 case "${1:-}" in
     new)   new_p ;;
     open)  open_p ;;
@@ -149,3 +150,97 @@ case "${1:-}" in
     check) bash "$BUILDER" check ;;
     *)     menu ;;
 esac
+}
+
+# ---- 补丁: 大小写不同视为不同项目 ----
+_find_similar(){
+    local n="$1" d b
+    _similar=""
+    for d in "$BASE"/*/; do
+        [ -d "$d" ] || continue
+        b=$(basename "$d")
+        [ "$b" = "$n" ] && continue
+        [ "${b,,}" = "${n,,}" ] && { _similar="$b"; return 0; }
+    done
+    return 1
+}
+
+new_p(){
+    local t n p a h rc=0
+    t=$(ask_radio "项目类型" "HTML 应用,Java 应用") || return
+    n=$(ask "项目名" "myapp") || return
+    echo "$n" | grep -qE '^[A-Za-z0-9_-]+$' || { termux-toast "名字不合法"; return; }
+    p=$(ask "包名" "com.example.$n") || return
+    a=$(ask "应用名" "$n") || return
+
+    # 只有完全同名（区分大小写）才算重复
+    if [ -e "$BASE/$n" ]; then
+        termux-toast "已存在: $n"
+        return
+    fi
+
+    # 大小写不同 → 视为不同项目，但给出提示
+    if _find_similar "$n"; then
+        ask_ok "注意" "已有相似项目 $_similar（仅大小写不同），仍创建 $n 吗？" || return
+    fi
+
+    cd "$BASE" || return
+    if [ "$t" = "HTML 应用" ]; then
+        h=$(ask_raw "HTML 路径(可空)" "$HOME/storage/shared/Download/index.html")
+        if [ -n "$h" ] && [ -e "$h" ]; then
+            bash "$BUILDER" init -web "$n" "$p" "$a" "$h" || rc=1
+        else
+            bash "$BUILDER" init -web "$n" "$p" "$a" || rc=1
+        fi
+    else
+        bash "$BUILDER" init "$n" "$p" "$a" || rc=1
+    fi
+    [ $rc -eq 0 ] && termux-toast "✓ $n 已创建" || termux-toast "创建失败"
+}
+
+
+# ---- 补丁: 大小写不同视为不同项目 ----
+_find_similar(){
+    local n="$1" d b
+    _similar=""
+    for d in "$BASE"/*/; do
+        [ -d "$d" ] || continue
+        b=$(basename "$d")
+        [ "$b" = "$n" ] && continue
+        [ "${b,,}" = "${n,,}" ] && { _similar="$b"; return 0; }
+    done
+    return 1
+}
+
+new_p(){
+    local t n p a h rc=0
+    t=$(ask_radio "项目类型" "HTML 应用,Java 应用") || return
+    n=$(ask "项目名" "myapp") || return
+    echo "$n" | grep -qE '^[A-Za-z0-9_-]+$' || { termux-toast "名字不合法"; return; }
+    p=$(ask "包名" "com.example.$n") || return
+    a=$(ask "应用名" "$n") || return
+
+    if [ -e "$BASE/$n" ]; then
+        termux-toast "已存在: $n"
+        return
+    fi
+
+    if _find_similar "$n"; then
+        ask_ok "注意" "已有相似项目 $_similar（仅大小写不同），仍创建 $n 吗？" || return
+    fi
+
+    cd "$BASE" || return
+    if [ "$t" = "HTML 应用" ]; then
+        h=$(ask_raw "HTML 路径(可空)" "$HOME/storage/shared/Download/index.html")
+        if [ -n "$h" ] && [ -e "$h" ]; then
+            bash "$BUILDER" init -web "$n" "$p" "$a" "$h" || rc=1
+        else
+            bash "$BUILDER" init -web "$n" "$p" "$a" || rc=1
+        fi
+    else
+        bash "$BUILDER" init "$n" "$p" "$a" || rc=1
+    fi
+    [ $rc -eq 0 ] && termux-toast "✓ $n 已创建" || termux-toast "创建失败"
+}
+
+main "$@"

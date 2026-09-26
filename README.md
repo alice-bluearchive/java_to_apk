@@ -22,18 +22,15 @@
 
 ```bash
 pkg update
-pkg install openjdk-17 apksigner dx zipalign imagemagick
-pkg install -y gnupg wget
-mkdir -p $PREFIX/etc/apt/sources.list.d
-echo "deb https://rendiix.github.io android-tools termux" \
-  > $PREFIX/etc/apt/sources.list.d/rendiix.list
-wget -qP $PREFIX/etc/apt/trusted.gpg.d https://rendiix.github.io/rendiix.gpg
-pkg update
-pkg install -y android-sdk-build-tools
-aapt2 version
+pkg install openjdk-17 apksigner d8 lydx imagemagick
+#安装zipalign
+curl -s https://raw.githubusercontent.com/rendiix/rendiix.github.io/master/install-repo.sh | bash
+pkg install zipalign
+#如果提示找不到这个包那么
+#apt install
 ```
 
-> `imagemagick` 只在转换图标格式时才需要。
+>注: `imagemagick` 只在转换图标格式时才需要。
 
 ### 2. 获取工具
 

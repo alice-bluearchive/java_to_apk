@@ -53,6 +53,19 @@ apply_icon(){
     fi
 }
 
+apk_is_signed(){
+    local f="$1"
+    # v1 签名：META-INF 下存在 .RSA/.DSA/.EC
+    if unzip -l "$f" 2>/dev/null | grep -qE 'META-INF/.*\.(RSA|DSA|EC)'; then
+        return 0
+    fi
+    # v2/v3 签名：文件内包含 APK 签名块魔数
+    if grep -aq 'APK Sig Block 42' "$f"; then
+        return 0
+    fi
+    return 1
+}
+
 init_project(){
     local web=0
     if [ "$1" = "-web" ]; then
@@ -145,6 +158,7 @@ import android.os.Bundle;
 import android.webkit.WebView;
 import android.webkit.WebSettings;
 import android.webkit.WebViewClient;
+import android.webkit.WebChromeClient;
 public class MainActivity extends Activity {
     private WebView wv;
     protected void onCreate(Bundle s) {
@@ -158,6 +172,7 @@ public class MainActivity extends Activity {
         ws.setLoadWithOverviewMode(true);
         ws.setUseWideViewPort(true);
         wv.setWebViewClient(new WebViewClient());
+        wv.setWebChromeClient(new WebChromeClient());
         wv.loadUrl("file:///android_asset/index.html");
         setContentView(wv);
     }
@@ -267,7 +282,22 @@ build_project(){
     zipalign -f 4 build/u.apk build/a.apk
     apksigner sign --min-sdk-version 21 --ks "$DEBUG_KEYSTORE" --ks-pass pass:android --ks-key-alias androiddebugkey --key-pass pass:android --out "build/$out.apk" build/a.apk || error "签名失败"
     rm -f build/u.apk build/a.apk build/classes.dex
-    success "完成! build/$out.apk"
+
+    # 清理未签名 APK：通过 apk_is_signed 检测文件内是否有 v1 或 v2/v3 签名数据
+    local final_apk="build/$out.apk"
+    local f
+    for f in build/*.apk; do
+        [ -e "$f" ] || continue
+        if apk_is_signed "$f"; then
+            info "保留已签名 APK: $f"
+        else
+            rm -f "$f"
+            info "已删除未签名 APK: $f"
+        fi
+    done
+
+    [ -f "$final_apk" ] || error "最终 APK 未生成: $final_apk"
+    success "完成! $final_apk"
 }
 
 clean_project(){ [ -z "$1" ] && error "用法: $0 clean <目录>"; rm -rf "$1/build"; success "清理完成";}
