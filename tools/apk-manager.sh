@@ -32,7 +32,7 @@ ask_sheet(){ _dlg termux-dialog sheet -t "$1" -v "$2"; [ -n "$DLG_TEXT" ] || ret
 ask_radio(){ _dlg termux-dialog radio -t "$1" -v "$2"; [ -n "$DLG_TEXT" ] || return 1; echo "$DLG_TEXT"; }
 
 # 输入框: 空则回退默认值
-ask(){ local d="${2:-}"; _dlg termux-dialog text -t "$1" -i "$d"; [ -n "$DLG_TEXT" ] && echo "$DLG_TEXT" || echo "$d"; }
+ask(){ local d="${2:-}"; _dlg termux-dialog text -t "$1" -i "$d"; [ -n "$DLG_TEXT" ] && echo "$DLG_TEXT" || return 1; }
 
 # 输入框: 允许空 (可选路径)
 ask_raw(){ _dlg termux-dialog text -t "$1" -i "${2:-}"; echo "$DLG_TEXT"; }
@@ -101,7 +101,7 @@ build_p(){
     local dir o ic apk
     dir=$(pick) || return
     o=$(ask "输出名" "app") || return
-    ic=$(ask_raw "图标 PNG (可空)" "$HOME/storage/shared/Download/icon.png")
+    ic=$(ask_raw "图标 (png/jpg/ico/icon,可空)" "$HOME/storage/shared/Download/icon.png")
     apk="$dir/build/$o.apk"; rm -f "$apk"
     termux-toast "编译 $o ..."
     if [ -n "$ic" ] && [ -f "$ic" ]; then

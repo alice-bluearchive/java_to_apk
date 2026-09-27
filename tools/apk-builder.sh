@@ -19,7 +19,7 @@ help(){
     echo "命令:"
     echo "  init   <目录> <包名> <应用名>              初始化 Java 项目"
     echo "  init -web <目录> <包名> <应用名> [html]    初始化 HTML 转 APK 项目"
-    echo "  build  <目录> [输出名] [图标.png]          编译项目"
+    echo "  build  <目录> [输出名] [图标]          编译项目"
     echo "  clean  <目录>                            清理构建文件"
     echo "  check                                    检查依赖"
     echo "  help                                     显示帮助"
@@ -35,24 +35,61 @@ check(){
             miss=1
         fi
     done
+    if command -v magick >/dev/null 2>&1 || command -v convert >/dev/null 2>&1; then
+        echo -e "${GREEN}[OK]${NC} ImageMagick (图标格式转换)"
+    elif command -v ffmpeg >/dev/null 2>&1; then
+        echo -e "${GREEN}[OK]${NC} ffmpeg (图标格式转换兜底)"
+    else
+        echo -e "${CYAN}[OPT]${NC} 未安装 ImageMagick/ffmpeg - 非 PNG 图标将无法转换"
+    fi
     [ $miss -eq 0 ] && success "依赖完整" || error "请先安装缺失的依赖"
 }
+
 
 apply_icon(){
     local d="$1" icon="$2"
     mkdir -p "$d/res/mipmap"
-    if [ -n "$icon" ]; then
-        [ -f "$icon" ] || error "图标文件不存在: $icon"
-        cp -f "$icon" "$d/res/mipmap/ic_launcher.png"
-        if ! grep -q 'android:icon="@mipmap/ic_launcher"' "$d/AndroidManifest.xml"; then
-            sed -i 's|android:label="@string/app_name"|android:label="@string/app_name" android:icon="@mipmap/ic_launcher"|' "$d/AndroidManifest.xml"
-        fi
-        info "已应用自定义图标: $icon"
-    else
+    if [ -z "$icon" ]; then
         info "未指定图标，使用 Android 系统默认图标"
+        return
     fi
-}
+    [ -f "$icon" ] || error "图标文件不存在: $icon"
 
+    local ext="${icon##*.}"
+    ext=$(printf '%s' "$ext" | tr '[:upper:]' '[:lower:]')
+    local target="$d/res/mipmap/ic_launcher.png"
+
+    case "$ext" in
+        png)
+            cp -f "$icon" "$target"
+            ;;
+        jpg|jpeg|ico|icon|webp|bmp|gif)
+            if command -v magick >/dev/null 2>&1; then
+                magick "$icon" -background none -resize 192x192 "$target" \
+                    || error "图标转换失败: $icon (magick)"
+            elif command -v convert >/dev/null 2>&1; then
+                convert "$icon" -background none -resize 192x192 "$target" \
+                    || error "图标转换失败: $icon (convert)"
+            elif command -v ffmpeg >/dev/null 2>&1; then
+                ffmpeg -y -i "$icon" \
+                    -vf "scale=192:192:force_original_aspect_ratio=decrease,pad=192:192:(ow-iw)/2:(oh-ih)/2:color=0x00000000" \
+                    -loglevel error "$target" \
+                    || error "图标转换失败: $icon (ffmpeg)"
+            else
+                error "需要 ImageMagick 或 ffmpeg 转换 .$ext: pkg install imagemagick"
+            fi
+            info "已转换 .$ext 图标为 PNG (192x192)"
+            ;;
+        *)
+            error "不支持的图标格式: .$ext（支持 png/jpg/jpeg/ico/icon/webp/bmp/gif）"
+            ;;
+    esac
+
+    if ! grep -q 'android:icon="@mipmap/ic_launcher"' "$d/AndroidManifest.xml"; then
+        sed -i 's|android:label="@string/app_name"|android:label="@string/app_name" android:icon="@mipmap/ic_launcher"|' "$d/AndroidManifest.xml"
+    fi
+    info "已应用自定义图标: $icon"
+}
 apk_is_signed(){
     local f="$1"
     # v1 签名：META-INF 下存在 .RSA/.DSA/.EC
@@ -236,7 +273,7 @@ J
 
 build_project(){
     local dir="$1" out="${2:-app}" icon="$3"
-    [ -z "$dir" ] && error "用法: $0 build <目录> [输出名] [图标.png]"
+    [ -z "$dir" ] && error "用法: $0 build <目录> [输出名] [图标]"
     [ ! -d "$dir" ] && error "目录不存在: $dir"
     if [ -n "$icon" ]; then
         [ -f "$icon" ] || error "图标文件不存在: $icon"
